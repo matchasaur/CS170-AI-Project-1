@@ -2,8 +2,14 @@
 #include <cstdlib>
 #include <queue>
 #include <vector>
+#include <stdlib.h>
+#include <thread>
+#include <chrono>
+#include <algorithm>
 
 using namespace std;
+
+chrono::milliseconds timespan(50);
 
 // vector<vector<int>> start_state = { {1, 2, 3},         //Sample start state for testing purposes, should return a depth of 2
 //                                          {4, 5, 6},
@@ -12,6 +18,7 @@ using namespace std;
 struct State {
     vector<vector<int> > state;         //Vector/Array representation of our board
     pair<int, int> blankTile;               //Position of blank tile
+    int cost;
     State(){};
 
     State(vector<vector<int> > newState)
@@ -35,35 +42,67 @@ struct State {
         }
     }
 
-    void Expand(priority_queue<State*>& nodes)
+    void Expand(priority_queue<State*>& nodes, vector<vector<vector<int> > >& repeatedStates, int& maxqueuesize)
     {
         State* temp;
+	vector<vector<int> > tempState;
+	std::vector<vector<vector<int> > >::iterator it;
         int row = this->blankTile.first;
         int col = this->blankTile.second;
 
         if(row-1 > 0)       //Validate moving up
         {
-            temp = new State(this->state);
-            moveUp(temp->state);
-            nodes.push(temp);
-        }
+	    cout << "wassuppp\n";
+	    tempState = this->state;
+	    moveUp(tempState);
+	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
+	    if (it == repeatedStates.end())
+	    {
+		cout << "Wassssssup!!! 2.0!!!!\n";
+		temp = new State(tempState);
+		temp->cost = this->cost + 1;
+            	nodes.push(temp);
+		maxqueuesize++;	
+	    }            
+	}
         if(row+1 < 3)       //Validate moving down
         {
-            temp = new State(this->state);
-            moveDown(temp->state);
-            nodes.push(temp);
+            tempState = this->state;
+	    moveDown(tempState);
+	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
+	    if (it == repeatedStates.end())
+	    {
+		temp = new State(tempState);
+	    	temp->cost = this->cost + 1;
+            	nodes.push(temp);
+		maxqueuesize++;	
+	    }
         }
         if(col-1 > 0)       //Validate moving left
         {
-            temp = new State(this->state);
-            moveLeft(temp->state);
-            nodes.push(temp);
+            tempState = this->state;
+	    moveLeft(tempState);
+	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
+	    if (it == repeatedStates.end())
+	    {
+		temp = new State(tempState);
+	    	temp->cost = this->cost + 1;
+            	nodes.push(temp);
+		maxqueuesize++;	
+	    }
         }
-        if(col+1 < 3)       //Validate moving up
+        if(col+1 < 3)       //Validate moving right
         {
-            temp = new State(this->state);
-            moveRight(temp->state);
-            nodes.push(temp);
+            tempState = this->state;
+	    moveRight(tempState);
+	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
+	    if (it == repeatedStates.end())
+	    {
+		temp = new State(tempState);
+	    	temp->cost = this->cost + 1;
+            	nodes.push(temp);
+		maxqueuesize++;	
+	    }
         }
     }
 
@@ -100,6 +139,7 @@ class Puzzle {
 	goal = new State;
 
 	start->state = {{1,2,3}, {4,5,6}, {0,7,8}};
+	start->cost = 0;
 	goal->state = {{1,2,3}, {4,5,6}, {7,8,0}};
  
         start->findBlank();
@@ -131,13 +171,18 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
 {
     priority_queue<State*> nodes;                 //initialize queue and push starting state to top
     nodes.push(puzzle.start);
-
+    int maxqueuesize = 0;
+    
     State* currNode;
+    vector<vector<vector<int> > > repeatedStates;
+    repeatedStates.push_back(puzzle.start->state);
+
 
     cout << "hello!\n";
 
     while(1)
     {
+        this_thread::sleep_for(timespan);
         if (nodes.empty())                                          // If the queue is empty, than a solution was not found, we return the starting state
         {
             cout << "A solution was not found. :(\n";
@@ -145,6 +190,10 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
         }
         currNode = nodes.top();
         nodes.pop();
+	repeatedStates.push_back(currNode->state);	
+
+	cout << "Currently looking at: \n";
+	printPuzzle(currNode);
         if (currNode->state == puzzle.goal->state)                          //We have found a solution. Output the matrix, depth found at, and nodes expanded
         {
             cout << "We have found a solution: " << endl;
@@ -152,7 +201,7 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
             return currNode->state;
             //TODO: Compute depth and expanded nodes
         }
-        currNode->Expand(nodes);                                            //Expand all children, push to the queue
+        currNode->Expand(nodes, repeatedStates, maxqueuesize);                                            //Expand all children, push to the queue
     }
 
     return puzzle.start->state;
