@@ -94,14 +94,12 @@ class Puzzle {
 
     Puzzle()                                //Initializes our puzzle with the start and goal states
     {
-        start->state ={  {1, 2, 3},          //Sample start state for testing purposes, should return a depth of 2
-                        {4, 5, 6},
-                        {0, 7, 8} };
+        start->state={{1, 2, 3}, {4, 5, 6}, {0, 7, 8}};        //Sample start state for testing purposes, should return a depth of 2
+                        
         start->findBlank();
 
-        goal->state = {  {1, 2, 3},          //Goal state
-                        {4, 5, 6},
-                        {7, 8, 0} };
+        goal->state = {{1, 2, 3}, {4, 5, 6}, {7, 8, 0}};       //Goal state
+                        
         goal->blankTile.first = 2;
         goal->blankTile.second = 2;
     }
@@ -131,6 +129,8 @@ vector<vector<int>> uniformCostSearch(Puzzle puzzle)
     nodes.push(puzzle.start);
 
     State* currNode;
+
+    cout << "hello!\n";
 
     while(1)
     {
