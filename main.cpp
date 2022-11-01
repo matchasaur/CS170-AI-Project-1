@@ -10,10 +10,11 @@ using namespace std;
 //                                          {0, 7, 8} };
 
 struct State {
-    vector<vector<int>> state;         //Vector/Array representation of our board
+    vector<vector<int> > state;         //Vector/Array representation of our board
     pair<int, int> blankTile;               //Position of blank tile
-    State();
-    State(vector<vector<int>> newState)
+    State(){};
+
+    State(vector<vector<int> > newState)
     {
         state = newState;
         findBlank();
@@ -66,22 +67,22 @@ struct State {
         }
     }
 
-    void moveUp(vector<vector<int>>& state)                                                             //Moves blank tile up
+    void moveUp(vector<vector<int> >& state)                                                             //Moves blank tile up
     {
         swap(state[blankTile.first][blankTile.second], state[blankTile.first-1][blankTile.second]);         
     }
 
-    void moveDown(vector<vector<int>>& state)                                                             //Moves blank tile down
+    void moveDown(vector<vector<int> >& state)                                                             //Moves blank tile down
     {
         swap(state[blankTile.first][blankTile.second], state[blankTile.first+1][blankTile.second]);         
     }
 
-    void moveLeft(vector<vector<int>>& state)                                                             //Moves blank tile left
+    void moveLeft(vector<vector<int> >& state)                                                             //Moves blank tile left
     {
         swap(state[blankTile.first][blankTile.second], state[blankTile.first][blankTile.second-1]);         
     }
 
-    void moveRight(vector<vector<int>>& state)                                                             //Moves blank tile right
+    void moveRight(vector<vector<int> >& state)                                                             //Moves blank tile right
     {
         swap(state[blankTile.first][blankTile.second], state[blankTile.first][blankTile.second+1]);         
     }
@@ -92,14 +93,17 @@ class Puzzle {
     State* start;
     State* goal;
 
+
     Puzzle()                                //Initializes our puzzle with the start and goal states
     {
-        start->state={{1, 2, 3}, {4, 5, 6}, {0, 7, 8}};        //Sample start state for testing purposes, should return a depth of 2
-                        
+    	start = new State;
+	goal = new State;
+
+	start->state = {{1,2,3}, {4,5,6}, {0,7,8}};
+	goal->state = {{1,2,3}, {4,5,6}, {7,8,0}};
+ 
         start->findBlank();
 
-        goal->state = {{1, 2, 3}, {4, 5, 6}, {7, 8, 0}};       //Goal state
-                        
         goal->blankTile.first = 2;
         goal->blankTile.second = 2;
     }
@@ -107,7 +111,7 @@ class Puzzle {
 };
 
 void printPuzzle(State*);
-vector<vector<int>> uniformCostSearch(Puzzle);
+vector<vector<int> > uniformCostSearch(Puzzle);
 
 
 int main() 
@@ -123,7 +127,7 @@ int main()
 }
 
 
-vector<vector<int>> uniformCostSearch(Puzzle puzzle)
+vector<vector<int> > uniformCostSearch(Puzzle puzzle)
 {
     priority_queue<State*> nodes;                 //initialize queue and push starting state to top
     nodes.push(puzzle.start);
