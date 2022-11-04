@@ -99,14 +99,14 @@ class Hash
 	void insertItem(vector<vector<int> > node)
 	{
 	    int index = hashFunction(node);
-	    cout << "inserting at: " << index << endl;
+	    //cout << "inserting at: " << index << endl;
 	    table[index].push_back(node);
 	}
 
 	bool isRepeated(vector<vector<int> > node)
 	{
 	    int index = hashFunction(node);
- 	    cout << "Searching at: " << index << endl;
+ 	    //cout << "Searching at: " << index << endl;
 	    list<vector<vector<int> > >::iterator i;
 	    for(i = table[index].begin(); i!= table[index].end(); i++)
 	    {
@@ -126,20 +126,23 @@ class Hash
 	}
 };
 
-class UniformCompare
+class Compare
 {
     public:
 	bool operator() (State* node1, State* node2)
 	{
-	    return node1->cost > node2->cost;
+	    int Fn1 = node1->cost + node1->heuristic;
+	    int Fn2 = node2->cost + node2->heuristic;
+	    if (Fn1 == Fn2) return node1->cost > node2->cost;
+	    else return Fn1 > Fn2;
 	}
 };
 
 void printPuzzle(State*);
-vector<vector<int> > uniformCostSearch(Puzzle);
+vector<vector<int> > Search(Puzzle, int);
 vector<vector<int> > MisplacedTileSearch(Puzzle);
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, Hash& h, int& maxqueuesize);
-void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, vector<vector<vector<int> > >& repeatedStates, int& maxqueuesize); 
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize);
+void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize); 
 void moveUp(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveDown(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveLeft(vector<vector<int> >& state, pair<int, int> blankTile); 
@@ -149,16 +152,22 @@ int MisplacedEval(State*);
 int main() 
 {
     Puzzle puzzle;
+    int choice = 0;
 
-    uniformCostSearch(puzzle);
+
+    cout << "Please enter which method you would like to solve with: " << endl << "1 - Uniform Cost Search\n2 - A* with Misplaced Tile Heuristic\n3 - A* with Manhattan Distance Heuristic" << endl;
+
+    cin >> choice;
+
+    Search(puzzle, choice);
 
     return 0;
 }
 
 
-vector<vector<int> > uniformCostSearch(Puzzle puzzle)
+vector<vector<int> > Search(Puzzle puzzle, int selection)
 {
-    priority_queue<State*, vector<State*>, UniformCompare> nodes;                 //initialize queue and push starting state to top
+    priority_queue<State*, vector<State*>, Compare> nodes;                 //initialize queue and push starting state to top
     nodes.push(puzzle.start);
     int maxqueuesize = 0;
     
@@ -195,13 +204,22 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
             return currNode->state;
             //TODO: Compute depth and expanded nodes
         }
-        UniformExpand(currNode, nodes, h, maxqueuesize);                                            //Expand all children, push to the queue
+	//Expand all children, push to the queue
+	switch(selection)
+	{
+	    case 1:
+                UniformExpand(currNode, nodes, h, maxqueuesize); 
+		break;
+	    case 2:
+		MisplacedExpand(currNode, nodes, h, maxqueuesize);
+		break;
+        }
     }
 
     return puzzle.start->state;
 }
 
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, Hash& h, int& maxqueuesize)
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize)
     {
 	bool repeat;
 	State* temp;
@@ -265,56 +283,12 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Unif
         }
     }
 
-/*
-
-vector<vector<int> > MisplacedTile(Puzzle puzzle)
+void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize)
 {
-    priority_queue<State*, vector<State*>, UniformCompare> nodes;                 //initialize queue and push starting state to top
-    nodes.push(puzzle.start);
-    int maxqueuesize = 0;
-    
-    State* currNode;
-    Hash h;
-    h.insertItem(puzzle.start->state);
-    //vector<vector<vector<int> > > repeatedStates;
-    //repeatedStates.push_back(puzzle.start->state);
-
-
-    cout << "hello!\n";
-
-    while(1)
-    {
-        this_thread::sleep_for(timespan);
-        if (nodes.empty())                                          // If the queue is empty, than a solution was not found, we return the starting state
-        {
-            cout << "A solution was not found. :(\n";
-            return puzzle.start->state;
-        }
-        currNode = nodes.top();
-        nodes.pop();
-	repeatedStates.push_back(currNode->state);	
-
-	cout << "Currently looking at: \n";
-	printPuzzle(currNode);
-        if (currNode->state == puzzle.goal->state)                          //We have found a solution. Output the matrix, depth found at, and nodes expanded
-        {
-            cout << "We have found a solution: " << endl;
-            printPuzzle(currNode);
-	    cout << "Solution Depth: " << currNode->cost << endl;
-	    cout << "Max queue size: " << maxqueuesize << endl;
-            return currNode->state;
-        }
-        MisplacedExpand(currNode, nodes, repeatedStates, maxqueuesize);                                            //Expand all children, push to the queue
-    }
-
-    return puzzle.start->state;
-}
-
-void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, vector<vector<vector<int> > >& repeatedStates, int& maxqueuesize)
-    {
+	bool repeat;
 	State* temp;
 	vector<vector<int> > tempState;
-	std::vector<vector<vector<int> > >::iterator it;
+	//std::vector<vector<vector<int> > >::iterator it;
         int row = currNode->blankTile.first;
         int col = currNode->blankTile.second;
 
@@ -322,11 +296,12 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Un
         {
 	    tempState = currNode->state;
 	    moveUp(tempState,currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
+		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
 		maxqueuesize++;	
 	    }            
@@ -335,50 +310,73 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Un
         {
             tempState = currNode->state;
 	    moveDown(tempState,currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
+		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
 		maxqueuesize++;	
 	    }
         }
         if(col-1 > -1)       //Validate moving left
         {
-            tempState = currNode->state;
+            
+	    tempState = currNode->state;
 	    moveLeft(tempState, currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
+		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
 		maxqueuesize++;	
 	    }
         }
         if(col+1 < 3)       //Validate moving right
         {
-            tempState = currNode->state;
+       	    tempState = currNode->state;
 	    moveRight(tempState,currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
+		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
 		maxqueuesize++;	
 	    }
         }
     }
 
+
+
+
+
+
+
+
+
 int MisplacedEval(State* currNode)
 {
-    //for(int i=0; i<
-
-
+    int x = 1;
+    int count = 0;
+    for(int i=0; i<3; i++)
+    {
+	for(int j=0; j<3; j++)
+	{
+	    if(currNode->state[i][j] != x)
+	    {
+		count++;
+	    }
+	    x++;
+            if (x == 9) x = 0;
+	}
+    }
 }
-*/
+
 
 
 
