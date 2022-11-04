@@ -6,6 +6,8 @@
 #include <thread>
 #include <chrono>
 #include <algorithm>
+#include <list>
+
 
 using namespace std;
 
@@ -56,7 +58,7 @@ class Puzzle {
     	start = new State;
 	goal = new State;
 
-	start->state = {{1,3,6}, {5,0,2}, {4,7,8}};
+	start->state = {{0,7,2}, {4,6,1}, {3,5,8}};
 	start->cost = 0;
 	goal->state = {{1,2,3}, {4,5,6}, {7,8,0}};
  
@@ -66,6 +68,62 @@ class Puzzle {
         goal->blankTile.second = 2;
     }
 
+};
+
+class Hash
+{
+    public:
+	int numBuckets;
+	
+	list<vector<vector<int> > > *table;
+
+	Hash()
+	{
+	    numBuckets = 1000000;
+	    table = new list<vector<vector<int> > >[numBuckets];
+	}
+
+	int hashFunction(vector<vector<int> > node)
+	{
+	    
+	    int row1 = node[0][0]*node[0][1]*node[0][2];
+	    int row2 = node[1][0]*node[1][1]*node[1][2];
+	    int col1 = node[0][0]*node[1][0]*node[2][0];
+	    int col2 = node[0][1]*node[1][1]*node[2][1];
+	    
+
+	    return row1+row2+col1+col2;
+	    
+	}
+
+	void insertItem(vector<vector<int> > node)
+	{
+	    int index = hashFunction(node);
+	    cout << "inserting at: " << index << endl;
+	    table[index].push_back(node);
+	}
+
+	bool isRepeated(vector<vector<int> > node)
+	{
+	    int index = hashFunction(node);
+ 	    cout << "Searching at: " << index << endl;
+	    list<vector<vector<int> > >::iterator i;
+	    for(i = table[index].begin(); i!= table[index].end(); i++)
+	    {
+	        if(*i == node)
+		{
+		    break;
+		}
+	    }
+	    if (i != table[index].end())
+	    {
+		return true;
+	    }
+	    else
+	    {
+		return false;
+	    }
+	}
 };
 
 class UniformCompare
@@ -80,12 +138,13 @@ class UniformCompare
 void printPuzzle(State*);
 vector<vector<int> > uniformCostSearch(Puzzle);
 vector<vector<int> > MisplacedTileSearch(Puzzle);
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, vector<vector<vector<int> > >& repeatedStates, int& maxqueuesize);
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, Hash& h, int& maxqueuesize);
 void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, vector<vector<vector<int> > >& repeatedStates, int& maxqueuesize); 
 void moveUp(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveDown(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveLeft(vector<vector<int> >& state, pair<int, int> blankTile); 
-void moveRight(vector<vector<int> >& state, pair<int, int> blankTile); 
+void moveRight(vector<vector<int> >& state, pair<int, int> blankTile);
+int MisplacedEval(State*); 
 
 int main() 
 {
@@ -104,8 +163,11 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
     int maxqueuesize = 0;
     
     State* currNode;
-    vector<vector<vector<int> > > repeatedStates;
-    repeatedStates.push_back(puzzle.start->state);
+    
+    Hash h;
+
+    //vector<vector<vector<int> > > repeatedStates;
+    //repeatedStates.push_back(puzzle.start->state);
 
 
     cout << "hello!\n";
@@ -115,12 +177,12 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
         //this_thread::sleep_for(timespan);
         if (nodes.empty())                                          // If the queue is empty, than a solution was not found, we return the starting state
         {
-            cout << "A solution was not found. :(\n";
+            cout << "A solution was not found. :(\n" << "at depth: " << currNode->cost << endl;
             return puzzle.start->state;
         }
         currNode = nodes.top();
         nodes.pop();
-	repeatedStates.push_back(currNode->state);	
+	h.insertItem(currNode->state);	
 
 	cout << "Currently looking at: \n";
 	printPuzzle(currNode);
@@ -133,17 +195,18 @@ vector<vector<int> > uniformCostSearch(Puzzle puzzle)
             return currNode->state;
             //TODO: Compute depth and expanded nodes
         }
-        UniformExpand(currNode, nodes, repeatedStates, maxqueuesize);                                            //Expand all children, push to the queue
+        UniformExpand(currNode, nodes, h, maxqueuesize);                                            //Expand all children, push to the queue
     }
 
     return puzzle.start->state;
 }
 
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, vector<vector<vector<int> > >& repeatedStates, int& maxqueuesize)
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, UniformCompare>& nodes, Hash& h, int& maxqueuesize)
     {
+	bool repeat;
 	State* temp;
 	vector<vector<int> > tempState;
-	std::vector<vector<vector<int> > >::iterator it;
+	//std::vector<vector<vector<int> > >::iterator it;
         int row = currNode->blankTile.first;
         int col = currNode->blankTile.second;
 
@@ -151,8 +214,8 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Unif
         {
 	    tempState = currNode->state;
 	    moveUp(tempState,currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
@@ -164,8 +227,8 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Unif
         {
             tempState = currNode->state;
 	    moveDown(tempState,currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
@@ -175,10 +238,11 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Unif
         }
         if(col-1 > -1)       //Validate moving left
         {
-            tempState = currNode->state;
+            
+	    tempState = currNode->state;
 	    moveLeft(tempState, currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
@@ -188,10 +252,10 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Unif
         }
         if(col+1 < 3)       //Validate moving right
         {
-            tempState = currNode->state;
+       	    tempState = currNode->state;
 	    moveRight(tempState,currNode->blankTile);
-	    it = find(repeatedStates.begin(), repeatedStates.end(), tempState);
-	    if (it == repeatedStates.end())
+	    repeat = h.isRepeated(tempState);
+	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
@@ -201,6 +265,8 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Unif
         }
     }
 
+/*
+
 vector<vector<int> > MisplacedTile(Puzzle puzzle)
 {
     priority_queue<State*, vector<State*>, UniformCompare> nodes;                 //initialize queue and push starting state to top
@@ -208,8 +274,10 @@ vector<vector<int> > MisplacedTile(Puzzle puzzle)
     int maxqueuesize = 0;
     
     State* currNode;
-    vector<vector<vector<int> > > repeatedStates;
-    repeatedStates.push_back(puzzle.start->state);
+    Hash h;
+    h.insertItem(puzzle.start->state);
+    //vector<vector<vector<int> > > repeatedStates;
+    //repeatedStates.push_back(puzzle.start->state);
 
 
     cout << "hello!\n";
@@ -304,8 +372,13 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Un
         }
     }
 
+int MisplacedEval(State* currNode)
+{
+    //for(int i=0; i<
 
 
+}
+*/
 
 
 
