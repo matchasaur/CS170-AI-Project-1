@@ -205,7 +205,7 @@ int main()
 
     auto stop = chrono::steady_clock::now();
 
-    chrono::duration<double> duration = chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    chrono::duration<double> duration = chrono::duration_cast<std::chrono::seconds>(stop - start);
     
     std::cout << "Time taken to find solution: " << duration.count() << endl;
 
@@ -217,7 +217,7 @@ vector<vector<int> > Search(Puzzle* puzzle, int selection)
 {
     priority_queue<State*, vector<State*>, Compare> nodes;                 //initialize queue and push starting state to top
     nodes.push(puzzle->start);
-    long unsigned int maxqueuesize = 0;
+    unsigned long int maxqueuesize = 0;
     int nodesExpanded = 0;
     
     State* currNode;
@@ -232,7 +232,10 @@ vector<vector<int> > Search(Puzzle* puzzle, int selection)
 
     while(1)
     {
-	maxqueuesize = max(nodes.size(), maxqueuesize);
+        if (maxqueuesize < nodes.size())
+        {
+            maxqueuesize = nodes.size();
+        }
         //this_thread::sleep_for(timespan);
         if (nodes.empty())                                          // If the queue is empty, than a solution was not found, we return the starting state
         {
