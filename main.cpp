@@ -144,11 +144,13 @@ vector<vector<int> > Search(Puzzle, int);
 vector<vector<int> > MisplacedTileSearch(Puzzle);
 void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h);
 void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h); 
+void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h); 
 void moveUp(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveDown(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveLeft(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveRight(vector<vector<int> >& state, pair<int, int> blankTile);
-int MisplacedEval(State*); 
+int MisplacedEval(State*);
+int ManhattanEval(State*);
 
 int main() 
 {
@@ -161,7 +163,8 @@ int main()
     cin >> choice;
 	    
     auto start = chrono::high_resolution_clock::now();
-    
+   
+    ios_base::sync_with_stdio(false); 
 
     Search(puzzle, choice);
 
@@ -223,6 +226,9 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
 		break;
 	    case 2:
 		MisplacedExpand(currNode, nodes, h);
+		break;
+	    case 3:
+		ManhattanExpand(currNode, nodes, h);
 		break;
         }
     }
@@ -361,6 +367,72 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
         }
     }
 
+void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h)
+{
+	bool repeat;
+	State* temp;
+	vector<vector<int> > tempState;
+	//std::vector<vector<vector<int> > >::iterator it;
+        int row = currNode->blankTile.first;
+        int col = currNode->blankTile.second;
+
+        if(row-1 > -1)       //Validate moving up
+        {
+	    tempState = currNode->state;
+	    moveUp(tempState,currNode->blankTile);
+	    repeat = h->isRepeated(tempState);
+	    if (!repeat)
+	    {
+		temp = new State(tempState);
+		temp->cost = currNode->cost + 1;
+		temp->heuristic = ManhattanEval(temp);
+            	nodes.push(temp);
+
+	    }            
+	}
+        if(row+1 < 3)       //Validate moving down
+        {
+            tempState = currNode->state;
+	    moveDown(tempState,currNode->blankTile);
+	    repeat = h->isRepeated(tempState);
+	    if (!repeat)
+	    {
+		temp = new State(tempState);
+	    	temp->cost = currNode->cost + 1;
+		temp->heuristic = ManhattanEval(temp);
+            	nodes.push(temp);
+
+	    }
+        }
+        if(col-1 > -1)       //Validate moving left
+        {
+            
+	    tempState = currNode->state;
+	    moveLeft(tempState, currNode->blankTile);
+	    repeat = h->isRepeated(tempState);
+	    if (!repeat)
+	    {
+		temp = new State(tempState);
+	    	temp->cost = currNode->cost + 1;
+		temp->heuristic = ManhattanEval(temp);
+            	nodes.push(temp);
+	    }
+        }
+        if(col+1 < 3)       //Validate moving right
+        {
+       	    tempState = currNode->state;
+	    moveRight(tempState,currNode->blankTile);
+	    repeat = h->isRepeated(tempState);
+	    if (!repeat)
+	    {
+		temp = new State(tempState);
+	    	temp->cost = currNode->cost + 1;
+		temp->heuristic = ManhattanEval(temp);
+            	nodes.push(temp);
+
+	    }
+        }
+    }
 
 
 
@@ -372,23 +444,67 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 int MisplacedEval(State* currNode)
 {
     int x = 1;
-    int count = 0;
+    int heuristic = 0;
     for(int i=0; i<3; i++)
     {
 	for(int j=0; j<3; j++)
 	{
 	    if(currNode->state[i][j] != x)
 	    {
-		count++;
+		heuristic++;
 	    }
 	    x++;
             if (x == 9) x = 0;
 	}
     }
-    return count;
+    return heuristic;
 }
 
+int ManhattanEval(State* currNode)
+{
+    int heuristic = 0;
 
+    for(int i=0; i<3; i++)
+    {
+	for(int j=0; j<3; j++)
+	{
+	    if (currNode->state[i][j] == 1)
+	    {
+		heuristic += abs((i-0) + (j-0));
+	    }
+	    else if (currNode->state[i][j] == 2)
+	    {
+		heuristic += abs((i-0) + (j-1));
+	    }
+	    else if (currNode->state[i][j] == 3)
+	    {
+		heuristic += abs((i-0)+(j-2));
+	    } 
+	    else if (currNode->state[i][j] == 4)
+	    {
+		heuristic += abs((i-1)+(j-0));
+	    } 
+	    else if (currNode->state[i][j] == 5)
+	    {
+		heuristic += abs((i-1)+(j-1));
+	    } 
+	    else if (currNode->state[i][j] == 6)
+	    {
+		heuristic += abs((i-1)+(j-2));
+	    } 
+	    else if (currNode->state[i][j] == 7)
+	    {
+		heuristic += abs((i-2)+(j-0));
+	    } 
+	    else if (currNode->state[i][j] == 8)
+	    {
+		heuristic += abs((i-2)+(j-1));
+	    } 
+	}
+    }      
+
+    return heuristic;
+}
 
 
 
