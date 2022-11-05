@@ -13,6 +13,10 @@
 using namespace std;
 chrono::milliseconds timespan(50);
 
+vector<vector<int> > Easy = {{1,3,6}, {5,0,7}, {4,8,2}};
+vector<vector<int> > Medium = {{1,6,7}, {5,0,3}, {4,8,2}};
+vector<vector<int> > Hard = {{0,7,2}, {4,6,1}, {3,5,8}};
+
 struct State {
     vector<vector<int> > state;         //Vector/Array representation of our board
     pair<int, int> blankTile;               //Position of blank tile
@@ -53,12 +57,11 @@ class Puzzle {
     State* goal;
 
 
-    Puzzle()                                //Initializes our puzzle with the start and goal states
+    Puzzle(State* startState)                                //Initializes our puzzle with the start and goal states
     {
-    	start = new State;
+    	start = startState;
 	goal = new State;
 
-	start->state = {{0,7,2}, {4,6,1}, {3,5,8}};
 	start->cost = 0;
 	goal->state = {{1,2,3}, {4,5,6}, {7,8,0}};
  
@@ -140,11 +143,11 @@ class Compare
 };
 
 void printPuzzle(State*);
-vector<vector<int> > Search(Puzzle, int);
+vector<vector<int> > Search(Puzzle*, int);
 vector<vector<int> > MisplacedTileSearch(Puzzle);
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h);
-void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h); 
-void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h); 
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h,int&);
+void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h,int&); 
+void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h,int&); 
 void moveUp(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveDown(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveLeft(vector<vector<int> >& state, pair<int, int> blankTile); 
@@ -154,23 +157,55 @@ int ManhattanEval(State*);
 
 int main() 
 {
-    Puzzle puzzle;
     int choice = 0;
+    cout << "Let's solve an 8-Puzzle! Please select the difficulty of puzzle:\n    1 - Easy\n    2 - Medium\n    3 - Hard\n    4 -  Custom" << endl;
+    cin >> choice;
+    State* board;
+    Puzzle* puzzle;
 
+    switch(choice)
+    {
+	case 1:
+	    board = new State(Easy);
+	    puzzle = new Puzzle(board);
+	    break;
+	case 2:
+	    board = new State(Medium);
+	    puzzle = new Puzzle(board);
+	    break;
+	case 3:
+	    board = new State(Hard);
+	    puzzle = new Puzzle(board);
+	    break;
+	case 4:
+	    vector<vector<int> > temp = {{-1,-1,-1},{-1,-1,-1},{-1,-1,-1}};
+	    for(int i=0; i<3; i++)
+	    {
+		cout << "Enter values for row " << i+1 << endl;
+		for(int j=0; j<3; j++)
+		{
+		    cout << "Please enter a value between (0-9), no duplicates" << endl;
+		    cin >> temp[i][j];
+		}
+	    }
+	    board = new State(temp);
+	    puzzle = new Puzzle(board);
+	    break;
+    }
 
     cout << "Please enter which method you would like to solve with: " << endl << "1 - Uniform Cost Search\n2 - A* with Misplaced Tile Heuristic\n3 - A* with Manhattan Distance Heuristic" << endl;
 
     cin >> choice;
 	    
-    auto start = chrono::high_resolution_clock::now();
+    auto start = chrono::steady_clock::now();
    
-    ios_base::sync_with_stdio(false); 
+    //ios_base::sync_with_stdio(false); 
 
     Search(puzzle, choice);
 
-    auto stop = chrono::high_resolution_clock::now();
+    auto stop = chrono::steady_clock::now();
 
-    auto duration = chrono::duration_cast<std::chrono::seconds>(stop - start);
+    chrono::duration<double> duration = chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     
     std::cout << "Time taken to find solution: " << duration.count() << endl;
 
@@ -178,11 +213,12 @@ int main()
 }
 
 
-vector<vector<int> > Search(Puzzle puzzle, int selection)
+vector<vector<int> > Search(Puzzle* puzzle, int selection)
 {
     priority_queue<State*, vector<State*>, Compare> nodes;                 //initialize queue and push starting state to top
-    nodes.push(puzzle.start);
+    nodes.push(puzzle->start);
     long unsigned int maxqueuesize = 0;
+    int nodesExpanded = 0;
     
     State* currNode;
     
@@ -201,7 +237,7 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
         if (nodes.empty())                                          // If the queue is empty, than a solution was not found, we return the starting state
         {
             cout << "A solution was not found. :(\n" << "at depth: " << currNode->cost << endl;
-            return puzzle.start->state;
+            return puzzle->start->state;
         }
         currNode = nodes.top();
         nodes.pop();
@@ -209,12 +245,13 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
 
 	cout << "Currently looking at: \n";
 	printPuzzle(currNode);
-        if (currNode->state == puzzle.goal->state)                          //We have found a solution. Output the matrix, depth found at, and nodes expanded
+        if (currNode->state == puzzle->goal->state)                          //We have found a solution. Output the matrix, depth found at, and nodes expanded
         {
             cout << "We have found a solution: " << endl;
             printPuzzle(currNode);
 	    cout << "Solution Depth: " << currNode->cost << endl;
 	    cout << "Max queue size: " << maxqueuesize << endl;
+	    cout << "Total nodes expanded: " << nodesExpanded << endl;
             return currNode->state;
             //TODO: Compute depth and expanded nodes
         }
@@ -222,21 +259,21 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
 	switch(selection)
 	{
 	    case 1:
-                UniformExpand(currNode, nodes, h); 
+                UniformExpand(currNode, nodes, h, nodesExpanded); 
 		break;
 	    case 2:
-		MisplacedExpand(currNode, nodes, h);
+		MisplacedExpand(currNode, nodes, h, nodesExpanded);
 		break;
 	    case 3:
-		ManhattanExpand(currNode, nodes, h);
+		ManhattanExpand(currNode, nodes, h, nodesExpanded);
 		break;
         }
     }
 
-    return puzzle.start->state;
+    return puzzle->start->state;
 }
 
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h)
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h, int& nodesExpanded)
     {
 	bool repeat;
 	State* temp;
@@ -254,7 +291,9 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Comp
 	    {
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
-            	nodes.push(temp);	
+            	nodes.push(temp);	 
+		nodesExpanded++;
+
 	    }            
 	}
         if(row+1 < 3)       //Validate moving down
@@ -266,7 +305,9 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Comp
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
@@ -280,7 +321,9 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Comp
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
@@ -293,13 +336,15 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Comp
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
     }
 
-void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h)
+void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h, int& nodesExpanded)
 {
 	bool repeat;
 	State* temp;
@@ -318,7 +363,9 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }            
 	}
@@ -332,7 +379,9 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
@@ -347,7 +396,9 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
@@ -361,13 +412,15 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
     }
 
-void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h)
+void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h, int& nodesExpanded)
 {
 	bool repeat;
 	State* temp;
@@ -386,7 +439,9 @@ void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
 		temp->heuristic = ManhattanEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }            
 	}
@@ -400,7 +455,9 @@ void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = ManhattanEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 
 	    }
         }
@@ -415,7 +472,9 @@ void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = ManhattanEval(temp);
-            	nodes.push(temp);
+            	nodes.push(temp); 
+		nodesExpanded++;
+
 	    }
         }
         if(col+1 < 3)       //Validate moving right
@@ -428,8 +487,8 @@ void ManhattanExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = ManhattanEval(temp);
-            	nodes.push(temp);
-
+            	nodes.push(temp); 
+		nodesExpanded++;
 	    }
         }
     }
