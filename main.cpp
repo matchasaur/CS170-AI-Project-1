@@ -7,10 +7,10 @@
 #include <chrono>
 #include <algorithm>
 #include <list>
-
+#include <ctime>
+#include <functional>
 
 using namespace std;
-
 chrono::milliseconds timespan(50);
 
 struct State {
@@ -86,14 +86,14 @@ class Hash
 	int hashFunction(vector<vector<int> > node)
 	{
 	    
-	    int row1 = node[0][0]*node[0][1]*node[0][2];
-	    int row2 = node[1][0]*node[1][1]*node[1][2];
-	    int col1 = node[0][0]*node[1][0]*node[2][0];
-	    int col2 = node[0][1]*node[1][1]*node[2][1];
-	    
+	    int row1 = node[0][0]+node[0][1]*node[0][2];
+	    int row2 = node[1][0]+node[1][1]*node[1][2];
+	    int col1 = node[0][0]+node[1][0]*node[2][0];
+	    int col2 = node[0][1]+node[1][1]*node[2][1];
+	    	    
 
-	    return row1+row2+col1+col2;
-	    
+	    return row1*row2*col1*col2;
+
 	}
 
 	void insertItem(vector<vector<int> > node)
@@ -107,6 +107,7 @@ class Hash
 	{
 	    int index = hashFunction(node);
  	    //cout << "Searching at: " << index << endl;
+ 	    
 	    list<vector<vector<int> > >::iterator i;
 	    for(i = table[index].begin(); i!= table[index].end(); i++)
 	    {
@@ -122,7 +123,7 @@ class Hash
 	    else
 	    {
 		return false;
-	    }
+	    } 
 	}
 };
 
@@ -133,16 +134,16 @@ class Compare
 	{
 	    int Fn1 = node1->cost + node1->heuristic;
 	    int Fn2 = node2->cost + node2->heuristic;
-	    if (Fn1 == Fn2) return node1->cost > node2->cost;
-	    else return Fn1 > Fn2;
+	    if (Fn1 == Fn2) { return node1->cost > node2->cost;}
+	    else {return Fn1 > Fn2;}
 	}
 };
 
 void printPuzzle(State*);
 vector<vector<int> > Search(Puzzle, int);
 vector<vector<int> > MisplacedTileSearch(Puzzle);
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize);
-void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize); 
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h);
+void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h); 
 void moveUp(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveDown(vector<vector<int> >& state, pair<int, int> blankTile); 
 void moveLeft(vector<vector<int> >& state, pair<int, int> blankTile); 
@@ -158,8 +159,17 @@ int main()
     cout << "Please enter which method you would like to solve with: " << endl << "1 - Uniform Cost Search\n2 - A* with Misplaced Tile Heuristic\n3 - A* with Manhattan Distance Heuristic" << endl;
 
     cin >> choice;
+	    
+    auto start = chrono::high_resolution_clock::now();
+    
 
     Search(puzzle, choice);
+
+    auto stop = chrono::high_resolution_clock::now();
+
+    auto duration = chrono::duration_cast<std::chrono::seconds>(stop - start);
+    
+    std::cout << "Time taken to find solution: " << duration.count() << endl;
 
     return 0;
 }
@@ -169,11 +179,11 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
 {
     priority_queue<State*, vector<State*>, Compare> nodes;                 //initialize queue and push starting state to top
     nodes.push(puzzle.start);
-    int maxqueuesize = 0;
+    long unsigned int maxqueuesize = 0;
     
     State* currNode;
     
-    Hash h;
+    Hash* h = new Hash();
 
     //vector<vector<vector<int> > > repeatedStates;
     //repeatedStates.push_back(puzzle.start->state);
@@ -183,6 +193,7 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
 
     while(1)
     {
+	maxqueuesize = max(nodes.size(), maxqueuesize);
         //this_thread::sleep_for(timespan);
         if (nodes.empty())                                          // If the queue is empty, than a solution was not found, we return the starting state
         {
@@ -191,7 +202,7 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
         }
         currNode = nodes.top();
         nodes.pop();
-	h.insertItem(currNode->state);	
+	h->insertItem(currNode->state);	
 
 	cout << "Currently looking at: \n";
 	printPuzzle(currNode);
@@ -208,10 +219,10 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
 	switch(selection)
 	{
 	    case 1:
-                UniformExpand(currNode, nodes, h, maxqueuesize); 
+                UniformExpand(currNode, nodes, h); 
 		break;
 	    case 2:
-		MisplacedExpand(currNode, nodes, h, maxqueuesize);
+		MisplacedExpand(currNode, nodes, h);
 		break;
         }
     }
@@ -219,7 +230,7 @@ vector<vector<int> > Search(Puzzle puzzle, int selection)
     return puzzle.start->state;
 }
 
-void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize)
+void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h)
     {
 	bool repeat;
 	State* temp;
@@ -232,26 +243,25 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Comp
         {
 	    tempState = currNode->state;
 	    moveUp(tempState,currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
-            	nodes.push(temp);
-		maxqueuesize++;	
+            	nodes.push(temp);	
 	    }            
 	}
         if(row+1 < 3)       //Validate moving down
         {
             tempState = currNode->state;
 	    moveDown(tempState,currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }
         }
         if(col-1 > -1)       //Validate moving left
@@ -259,31 +269,31 @@ void UniformExpand(State* &currNode, priority_queue<State*, vector<State*>, Comp
             
 	    tempState = currNode->state;
 	    moveLeft(tempState, currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }
         }
         if(col+1 < 3)       //Validate moving right
         {
        	    tempState = currNode->state;
 	    moveRight(tempState,currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }
         }
     }
 
-void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash& h, int& maxqueuesize)
+void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Compare>& nodes, Hash* h)
 {
 	bool repeat;
 	State* temp;
@@ -296,28 +306,28 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
         {
 	    tempState = currNode->state;
 	    moveUp(tempState,currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 		temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }            
 	}
         if(row+1 < 3)       //Validate moving down
         {
             tempState = currNode->state;
 	    moveDown(tempState,currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }
         }
         if(col-1 > -1)       //Validate moving left
@@ -325,28 +335,28 @@ void MisplacedExpand(State* &currNode, priority_queue<State*, vector<State*>, Co
             
 	    tempState = currNode->state;
 	    moveLeft(tempState, currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }
         }
         if(col+1 < 3)       //Validate moving right
         {
        	    tempState = currNode->state;
 	    moveRight(tempState,currNode->blankTile);
-	    repeat = h.isRepeated(tempState);
+	    repeat = h->isRepeated(tempState);
 	    if (!repeat)
 	    {
 		temp = new State(tempState);
 	    	temp->cost = currNode->cost + 1;
 		temp->heuristic = MisplacedEval(temp);
             	nodes.push(temp);
-		maxqueuesize++;	
+
 	    }
         }
     }
@@ -375,6 +385,7 @@ int MisplacedEval(State* currNode)
             if (x == 9) x = 0;
 	}
     }
+    return count;
 }
 
 
